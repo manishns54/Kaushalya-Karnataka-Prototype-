@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 0.1 Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { return isSignedIn() && request.auth.token.email == "admin@kaushalya.in"; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'name', 'email', 'role']) && 
+               data.uid == request.auth.uid &&
+               data.role in ['WORKER', 'CUSTOMER', 'ADMIN'] &&
+               data.email is string && data.email.size() <= 100;
+      }
+
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Allow searching for workers
+      allow create: if isSignedIn() && isValidUser(incoming());
+      allow update: if 
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'locality', 'bio', 'tradeCategory', 'photos'])) ||
+        (isAdmin() && (incoming().diff(existing()).affectedKeys().hasAny(['isActive', 'name', 'locality', 'bio', 'tradeCategory', 'photos', 'avgRating', 'totalReviewCount', 'totalJobs']))) ||
+        (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['avgRating', 'totalReviewCount', 'totalJobs']));
+    }
+
+    // 2. Service Cards
+    match /serviceCards/{cardId} {
+      function isValidService(data) {
+        return data.keys().hasAll(['workerId', 'name', 'category', 'priceType', 'price']) &&
+               data.workerId == request.auth.uid &&
+               data.name is string && data.name.size() <= 64;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidService(incoming()) && isValidId(cardId);
+      allow update: if isOwner(existing().workerId) && isValidService(incoming());
+      allow delete: if isOwner(existing().workerId);
+    }
+
+    // 3. Hire Requests
+    match /hireRequests/{requestId} {
+      function isValidRequest(data) {
+        return data.keys().hasAll(['customerId', 'workerId', 'status', 'createdAt']) &&
+               data.customerId == request.auth.uid &&
+               data.status == 'PENDING';
+      }
+
+      allow get: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.workerId == request.auth.uid || 
+        isAdmin()
+      );
+      
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid || 
+        resource.data.workerId == request.auth.uid || 
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() && isValidRequest(incoming()) && isValidId(requestId);
+      allow update: if isSignedIn() && (
+        // Worker accepts/declines
+        (isOwner(existing().workerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && incoming().status in ['ACCEPTED', 'DECLINED', 'COMPLETED']) ||
+        // Customer reviews/cancels
+        (isOwner(existing().customerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && incoming().status in ['REVIEWED'])
+      );
+    }
+
+    // 4. Reviews
+    match /reviews/{reviewId} {
+      function isValidReview(data) {
+        return data.keys().hasAll(['requestId', 'customerId', 'workerId', 'rating']) &&
+               data.customerId == request.auth.uid &&
+               data.rating >= 1 && data.rating <= 5;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidReview(incoming()) && isValidId(reviewId) &&
+                    get(/databases/$(database)/documents/hireRequests/$(incoming().requestId)).data.status == 'COMPLETED';
+      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['flagged']);
+    }
+  }
+}

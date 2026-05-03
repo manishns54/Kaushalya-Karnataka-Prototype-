@@ -1,0 +1,12 @@
+{
+  "name": "Kaushalya Karnataka",
+  "description": "A comprehensive service marketplace connecting workers, customers, and admins with AI-generated bios and secure job management.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "Firebase Firestore",
+    "Firebase Authentication",
+    "Gemini AI Bio Generation"
+  ]
+}

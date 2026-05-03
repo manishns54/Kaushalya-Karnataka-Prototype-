@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile for workers, customers, or admins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["WORKER", "CUSTOMER", "ADMIN"] },
+        "locality": { "type": "string" },
+        "tradeCategory": { "type": "string" },
+        "bio": { "type": "string" },
+        "avgRating": { "type": "number" },
+        "totalReviewCount": { "type": "integer" },
+        "totalJobs": { "type": "integer" },
+        "isActive": { "type": "boolean" },
+        "photos": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "ServiceCard": {
+      "title": "Service Card",
+      "description": "A service offered by a worker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "priceType": { "type": "string", "enum": ["Fixed", "Starting at"] },
+        "price": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["workerId", "name", "category", "priceType", "price"]
+    },
+    "HireRequest": {
+      "title": "Hire Request",
+      "description": "A job request from a customer to a worker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "workerName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "COMPLETED", "DECLINED", "REVIEWED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "workerId", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A review for a completed job.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requestId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "workerId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "flagged": { "type": "boolean" }
+      },
+      "required": ["requestId", "customerId", "workerId", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Storage for user profiles."
+    },
+    "/serviceCards/{cardId}": {
+      "schema": "ServiceCard",
+      "description": "Storage for services offered by workers."
+    },
+    "/hireRequests/{requestId}": {
+      "schema": "HireRequest",
+      "description": "Storage for job lifecycle."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Storage for customer reviews."
+    }
+  }
+}
